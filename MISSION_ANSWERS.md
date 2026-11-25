@@ -131,7 +131,7 @@ Trong `04-api-gateway/develop/app.py`, `APIKeyHeader(name="X-API-Key", auto_erro
 
 Để xoay vòng key, hãy tạo secret mới, cập nhật biến môi trường trên nền tảng triển khai, triển khai/khởi động lại dịch vụ, cập nhật các client được cấp quyền và thu hồi key cũ. Dịch vụ production thực tế không nên sử dụng key dự phòng phục vụ mục đích giáo dục trong ví dụ này và tuyệt đối không ghi key thật vào log, mặc dù ứng dụng demo in key đã cấu hình khi khởi động.
 
-**Kết quả kiểm thử:** Chưa chạy; không có kết quả phản hồi HTTP nào được khẳng định.
+**Kết quả kiểm thử:** Chưa thực hiện kiểm thử độc lập đối với API Key trong Exercise 4.1; chưa khẳng định kết quả HTTP cho phiên bản này.
 
 ### Bài tập 4.2: Xác thực bằng JWT
 
@@ -144,7 +144,11 @@ Dịch vụ nâng cao sử dụng quy trình sau:
 
 Mã nguồn cung cấp hai tài khoản minh họa: `student` (vai trò user) và `teacher` (vai trò admin). Đường dẫn endpoint trong mã nguồn hiện tại là `/auth/token`. Thông tin xác thực bị thiếu sẽ trả về 401, token hết hạn trả về 401 và JWT không hợp lệ trả về 403. JWT secret mặc định được xác định rõ là giá trị dự phòng cho demo; khi triển khai production phải thiết lập `JWT_SECRET` một cách an toàn.
 
-**Kết quả kiểm thử:** Chưa chạy; chưa có token hoặc phản hồi nào được tạo cho câu trả lời này.
+**Kết quả kiểm thử:** Đã kiểm thử thành công trên local API:
+
+- Đăng nhập bằng tài khoản `student / demo123` tại `POST /auth/token` và nhận JWT thành công.
+- Gửi request đến `/ask` không có Bearer token trả về **HTTP 401 Unauthorized**, với thông báo `Authentication required`.
+- Gửi request có JWT hợp lệ được chấp nhận và trả về **HTTP 200 OK**.
 
 ### Bài tập 4.3: Giới hạn tốc độ (Rate limiting)
 
@@ -153,11 +157,17 @@ Mã nguồn cung cấp hai tài khoản minh họa: `student` (vai trò user) v�
 - Người dùng thông thường: **10 request trong 60 giây**.
 - Người dùng admin: **100 request trong 60 giây**.
 - `/ask` chọn bộ giới hạn dành cho admin khi role JWT đã xác minh là `admin`; đây là cơ chế trong mã nguồn giúp admin có giới hạn cao hơn.
-- Request vượt giới hạn nhận phản hồi **429** cùng các header `Retry-After` và `X-RateLimit-*`.
+- Request vượt giới hạn nhận phản hồi **429** cùng thông tin giới hạn và thời gian chờ thử lại.
 
 Cách triển khai này chỉ phù hợp với demo chạy một process. Chính mã nguồn cũng lưu ý rằng để mở rộng production cần sử dụng rate limiter dựa trên Redis, nhằm chia sẻ trạng thái giữa nhiều instance.
 
-**Kết quả kiểm thử:** Chưa chạy; không có kết quả rate limit nào được khẳng định.
+**Kết quả kiểm thử:** Đã kiểm thử thành công trên local API bằng tài khoản `student`:
+
+- 10 request đầu tiên liên tiếp trả về **HTTP 200 OK**.
+- Request thứ 11 trả về **HTTP 429 Too Many Requests**.
+- Response ghi nhận `limit: 10`, `window_seconds: 60` và `retry_after_seconds: 59`.
+
+Kết quả xác nhận cơ chế sliding-window rate limiter hoạt động đúng với giới hạn 10 request trong 60 giây.
 
 ### Bài tập 4.4: Triển khai Cost Guard
 
